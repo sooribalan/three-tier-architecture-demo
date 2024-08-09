@@ -1,0 +1,41 @@
+pipeline {
+  agent any 
+    
+  stages {
+    stage('Build and Push Docker Image') {
+      environment {
+        DOCKER_IMAGE = "sbalan7305/cart:${BUILD_NUMBER}"
+        // DOCKERFILE_LOCATION = "three-tier-architecture-demo/cart/Dockerfile"
+        REGISTRY_CREDENTIALS = credentials('dokcerhub')
+      }
+      steps {
+        script {
+            sh 'cd three-tier-architecture-demo/cart && docker build -t ${DOCKER_IMAGE} .'
+            def dockerImage = docker.image("${DOCKER_IMAGE}")
+            docker.withRegistry('https://index.docker.io/v1/', "dokcerhub") {
+                dockerImage.push()
+            }
+        }
+      }
+    }
+    stage('Update Deployment File') {
+        environment {
+            GIT_REPO_NAME = "three-tier-architecture-demo"
+            GIT_USER_NAME = "sooribalan"
+      }
+      steps {
+            withCredentials([string(credentialsId: 'github', variable: 'GITHUB_TOKEN')]) {
+                sh '''
+                    git config user.email "sooribalan@outlook.com"
+                    git config user.name "Soori Balan"
+                    BUILD_NUMBER=${BUILD_NUMBER}
+                    sed -i "s/replaceImageTag/${BUILD_NUMBER}/g" java-maven-sonar-argocd-helm-k8s/spring-boot-app-manifests/deployment.yml
+                    git add java-maven-sonar-argocd-helm-k8s/spring-boot-app-manifests/deployment.yml
+                    git commit -m "Update deployment image to version ${BUILD_NUMBER}"
+                    git push https://${GITHUB_TOKEN}@github.com/${GIT_USER_NAME}/${GIT_REPO_NAME} HEAD:main
+                '''
+            }
+        }
+    }
+  }
+}
