@@ -19,6 +19,11 @@ pipeline {
       }
     }
     stage('Update Deployment File') {
+        when {
+            expression {
+                return false // Change to true to enable the stage
+            }
+        }
         environment {
             GIT_REPO_NAME = "three-tier-architecture-demo"
             GIT_USER_NAME = "sooribalan"
